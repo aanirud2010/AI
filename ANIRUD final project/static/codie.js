@@ -13,38 +13,64 @@ const fileReader = new FileReader();
 const imgPromtString = [
     'picture', 'image', 'show me', 'photo'
 ]
+
+function codieStart() {
+        const codieIntro = "Hello, my name is Codie. How can I assist you?";
+        const codieInstruction = "Start your sentence with 'generate me an image' or anything to just chat with me!";
+        codieIntroTag.classList.add('ai-bubble');
+        codieInstructionTag.classList.add('ai-bubble');
+        codieIntroTag.textContent = codieIntro;
+        codieInstructionTag.textContent = codieInstruction;
+        codieIntroTag.classList.add("custom-cursor");
+        codieInstructionTag.classList.add("custom-cursor");
+        addBubbleEvent(codieIntroTag);
+        addBubbleEvent(codieInstructionTag);
+        frame.appendChild(codieIntroTag);
+        frame.appendChild(codieInstructionTag);
+        records.push("AI: " + codieIntro);
+        records.push("AI: " + codieInstruction);
+    }
 const records = [];
 let mediaRecorder;
 codieStart();
 
 function addBubbleEvent(bubble){
-    /************************************
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     ***********************************/
+    bubble.addEventListener('click', ()=>{
+    const options ={
+        method: 'POST',
+        headers: {
+            'xi-api-key': elevenlabs_api_key,
+            'Content-Type': 'application/json'
+        },
+        body: `{"text": "${bubble.innerHTML.trim()}"}`,
+        type:"arrayBuffer"
+    }
+    fetch('https://api.elevenlabs.io/v1/text-to-speach/4YYIPFl9wE5c4L2eu2Gb', options)
+        .then(async(response) => {
+            const arrayBuffer = await response.arrayBuffer();
+            const blob = new Blob([arrayBuffer], {type: 'audio/wav'});
+            const audiourl = URL.createObjectURL(blob);
+            const audioElement = new Audio(audiourl)
+            audioElement.play();
+        })
+    })
 }
 
 async function audioToText(filename) {
-    /*******************************
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     *******************************/
+    const data = filename;
+   const response = await fetch(
+		"https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3",
+		{
+			headers: {
+				Authorization: `Bearer ${hugging_face_key}`,
+				"Content-Type": "audio/flac",
+			},
+			method: "POST",
+			body: JSON.stringify(data),
+		}
+	);
+	const result = await response.json();
+	return result;
 }
 
 fileReader.onload = function (event) {
@@ -52,32 +78,34 @@ fileReader.onload = function (event) {
 };
 
 async function textGen(data) {
-    /***************************************
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     ************************************/
+    const response = await fetch(
+		"https://router.huggingface.co/v1/chat/completions",
+		{
+			headers: {
+				Authorization: `Bearer ${hugging_face_key}`,
+				"Content-Type": "application/json",
+			},
+			method: "POST",
+			body: JSON.stringify(data),
+		}
+	);
+	const result = await response.json();
+	return result;
 }
 
 async function imageGen(data) {
-    /***********************************
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     * 
-     **********************************/
+	const response = await fetch(
+		"https://router.huggingface.co/nebius/v1/images/generations",
+		{
+ 			headers: {
+				Authorization: `Bearer ${hugging_face_key}`,
+				"Content-Type": "application/json",
+			},
+			method: "POST",
+			body: JSON.stringify(data),
+		})
+    const result = await response.blob();
+	return result;
 }
 
 navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
@@ -158,86 +186,101 @@ async function mainCall(userValue) {
                 frame.appendChild(aiOutput);
                 const imgCon = document.createElement('div');
                 const img = document.createElement('img');
-                /***************************************
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 ***************************************/
+                imageGen({
+				                  response_format:"b64_json",
+				                    prompt: userValue,
+				                  model: "stability-ai/sdxl"}).then(async (response) => {  const temp = await response.text();
+				                 const imageObject = JSON.parse(temp);
+                                 console.log(imageObject)
+                                 const imageURL = imageObject.data[0].b64_json;
+                                 const URL = "data:image/png;base64," + imageURL
+                                 console.log(URL)
+                                img.src = URL;
+                                 img.classList.add('image-generated-codie');
+                                 imgCon.classList.add('image-bubble')
+                                imgCon.appendChild(img);
+                                 frame.appendChild(imgCon);
+                                 aiOutput.innerHTML = 'Here is your image'
+                                frame.scrollTop = frame.scrollHeight;
+                                 resetPlaceholder();
+                                 records.push("User: " + userInput.innerHTML);
+                                 records.push(img.src);
+                                 records.push("AI: " + aiOutput.innerHTML);
+                                 submitButton.disabled=false;
+                                 micButton.disabled=false;
+
+
+                            })
             } else {
-                /***********************************************
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 * 
-                 *********************************************/
+
+                textGen({messages: [
+                    {
+                        role: "user",
+                        content: userValue,
+                    },
+                    ],
+                    model: "google/gemma-2-2b-it:nebius",
+            }).then(async (response) => {
+                        let temp = await response;
+                        console.log(temp.choices[0].message.content)
+                       // console.log(temp[id])
+                        let aiContentValue = await contentFilterText(response.choices[0].message.content)
+                        if(aiContentValue == 1){
+                            frame.appendChild(userInput)
+                            frame.appendChild(aiOutput)
+                            userInput.innerHTML = userValue
+                            let cutoff = stopAtLastPeriod(response.choices[0].message.content)
+                            let noBlankLines = removeBlankLines(cutoff)
+                            aiOutput.innerHTML = noBlankLines
+                            aiOutput.classList.add("custom-cursor")
+                            addBubbleEvent(aiOutput)
+                            frame.scrollTop = frame.scrollHeight
+                            resetPlaceholder()
+                            records.push("User: " + userInput.innerHTML)
+                            records.push("AI: "+ noBlankLines)
+                            submitButton.disabled = false;
+                            micButton.disabled = false
+
+
+
+                        } else{ setPlaceholder(aiContentValue);
+                            submitButton.disabled= false;
+                            micButton.disabled =false;
+                        }
+
+                    })
+
+
             }
         } else {
             setPlaceholder(contentValue);
         }
+
     }
-}
 
-function codieStart() {
-    const codieIntro = "Hello, my name is Codie. How can I assist you?";
-    const codieInstruction = "Start your sentence with 'generate me an image' or anything to just chat with me!";
-    codieIntroTag.classList.add('ai-bubble');
-    codieInstructionTag.classList.add('ai-bubble');
-    codieIntroTag.textContent = codieIntro;
-    codieInstructionTag.textContent = codieInstruction;
-    codieIntroTag.classList.add("custom-cursor");
-    codieInstructionTag.classList.add("custom-cursor");
-    addBubbleEvent(codieIntroTag);
-    addBubbleEvent(codieInstructionTag); 
-    frame.appendChild(codieIntroTag);
-    frame.appendChild(codieInstructionTag);
-    records.push("AI: " + codieIntro);
-    records.push("AI: " + codieInstruction);
-}
 
-function setPlaceholder(cv) {
-    if (cv == 0) {
-        entry.value = "";
-        entry.placeholder = "Please be appropriate!";
-    } else {
-        entry.value = "";
-        entry.placeholder = "There has been an error.";
-    }
-}
 
-function resetPlaceholder() {
-    entry.value = '';
-    entry.placeholder = "Chat with Codie or ask him to generate an image";
-}
-
-function checkImgPromt(input) {
-    for (let i = 0; i < imgPromtString.length; i++) {
-        if (input.includes(imgPromtString[i])) {
-            return true;
+    function setPlaceholder(cv) {
+        if (cv == 0) {
+            entry.value = "";
+            entry.placeholder = "Please be appropriate!";
+        } else {
+            entry.value = "";
+            entry.placeholder = "There has been an error.";
         }
     }
-    return false;
+
+    function resetPlaceholder() {
+        entry.value = '';
+        entry.placeholder = "Chat with Codie or ask him to generate an image";
+    }
+
+    function checkImgPromt(input) {
+        for (let i = 0; i < imgPromtString.length; i++) {
+            if (input.includes(imgPromtString[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

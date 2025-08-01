@@ -9,20 +9,23 @@ const downloadableLink = document.querySelector(".download-link");
 
 let records = [];
 
-/*query function****************************
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-*
-******************************************/
+async function query(data) {
+	const response = await fetch(
+		"https://router.huggingface.co/v1/chat/completions",
+		{
+			headers: {
+				Authorization: `Bearer ${hugging_face_key}`,
+				"Content-Type": "application/json",
+			},
+			method: "POST",
+			body: JSON.stringify(data),
+		}
+	);
+	const result = await response.json();
+	return result;
+}
+
+
 
 downloadButton.addEventListener('click', () => {
     const filename = "records.txt";
@@ -50,23 +53,33 @@ async function submit() {
     if (input != "") {
         let contentValue = await contentFilterText(input);
         if (contentValue == 1) {
-            query({ "inputs": input, "parameters": { "return_full_text": false } }).then(async (response) => {
-                let aiContentValue = await contentFilterText(response[0].generated_text);
+            query({
+                   messages: [
+        {
+            role: "user",
+            content: input,
+        },
+    ],
+    model: "google/gemma-2-2b-it:nebius",
+            }).then(async (response) => {
+                let aiContentValue = await contentFilterText(response);
+                const test = await response;
+                console.log(test)
                 if (aiContentValue == 1) {
-                    /*****************************
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     * 
-                     **********************************/
+                     let AIresult = response.choices[0].message.content
+                     const userInput = document.createElement('p')
+                     const aiOutput = document.createElement('p')
+                    userInput.classList.add("user-bubble")
+                    aiOutput.classList.add("ai-bubble")
+                     let cutoff = stopAtLastPeriod(AIresult)
+                     userInput.innerHTML = input
+                    aiOutput.innerHTML = cutoff
+                    textFrame.appendChild(userInput)
+                    textFrame.appendChild(aiOutput)
+                    let noBlankLines = removeBlankLines(cutoff)
+                    records.push("User: " + userInput.innerHTML)
+                    records.push("AI: " + noBlankLines)
+
                 } else {
                     setPlaceholder(aiContentValue);
                 }
