@@ -20,5 +20,10 @@ def textGen():
 def codie():
     return  render_template('/pages/codie.html')
 
+@app.route('/pages/textovideo')
+def textovideo():
+    return render_template('/pages/textovideo.html')
+
 if __name__ == '__main__':
+
     app.run(debug=True)
